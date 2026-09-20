@@ -17,7 +17,7 @@ precision / recall / F1 scores.
 - [Dataset](#dataset)
 - [Methodology](#methodology)
 - [Models](#models)
-- [Evaluation](#evaluation)
+- [Results](#results)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
 - [Notes](#notes)
@@ -32,7 +32,7 @@ precision / recall / F1 scores.
 ### Features
 
 | # | Column | Type | Description |
-|---|--------|------|-------------|
+| --- | -------- | ------ | ------------- |
 | 1 | `person_age` | Numeric | Age of the applicant in years |
 | 2 | `person_gender` | Categorical | `male`, `female` |
 | 3 | `person_education` | Categorical | `High School`, `Associate`, `Bachelor`, `Master`, `Doctorate` |
@@ -46,18 +46,23 @@ precision / recall / F1 scores.
 | 11 | `cb_person_cred_hist_length` | Numeric | Length of credit history in years |
 | 12 | `credit_score` | Numeric | Credit score of the applicant |
 | 13 | `previous_loan_defaults_on_file` | Categorical | `Yes`, `No` |
-| 14 | `loan_status` | **Target** | Binary loan outcome |
+| 14 | `loan_status` | **Target** | `1` = loan approved, `0` = loan rejected |
 
 ### Target distribution
 
-| `loan_status` | Count | Share |
-|---------------|-------|-------|
-| `0` | 35,000 | 77.8 % |
-| `1` | 10,000 | 22.2 % |
+| `loan_status` | Meaning | Count | Share |
+| --------------- | --------- | ------- | ------- |
+| `0` | Rejected | 35,000 | 77.8 % |
+| `1` | Approved | 10,000 | 22.2 % |
 
 The target is **imbalanced at roughly 3.5 : 1**, which is why the comparison relies on
 ROC AUC and per-class precision / recall rather than raw accuracy — a model that
-predicts the majority class for every applicant would already score about 78 %.
+rejected every applicant would already score about 78 %.
+
+One constraint is worth knowing before reading the results: every one of the
+22,858 applicants with a previous default on file falls in the rejected class, and
+none in the approved class. `previous_loan_defaults_on_file` therefore separates a
+large part of the data on its own, and every model here leans on it heavily.
 
 ---
 
@@ -71,7 +76,7 @@ predicts the majority class for every applicant would already score about 78 %.
    whole frame becomes numeric:
 
    | Column | Mapping |
-   |--------|---------|
+   | -------- | --------- |
    | `person_gender` | male → 0, female → 1 |
    | `person_education` | Bachelor → 0, Associate → 1, High School → 2, Master → 3, Doctorate → 4 |
    | `person_home_ownership` | RENT → 0, MORTGAGE → 1, OWN → 2, OTHER → 3 |
@@ -82,39 +87,62 @@ predicts the majority class for every applicant would already score about 78 %.
    numeric frame and render it as a `YlGnBu` heatmap.
 5. **Class balance check** — count and plot the two `loan_status` classes.
 6. **Split** — 80 % training / 20 % testing via `train_test_split`
-   (`test_size=0.2`, `random_state=67` for reproducibility).
+   (`test_size=0.2`, `random_state=67`), giving 36,000 training and 9,000 test records.
 7. **Scale** — standardize the features with `StandardScaler` (mean 0, standard
    deviation 1), fitted on the training split only and then applied to the test
    split, so no test-set statistics leak into training.
-8. **Train and compare** — fit all three models on the scaled training data and
-   evaluate them on the held-out test set.
+8. **Train and compare** — fit all three models once on the scaled training data,
+   then evaluate those same fitted models on the held-out test set: ROC curves and
+   AUC first, then a confusion matrix and classification report for each.
 
 ---
 
 ## Models
 
 | Model | Configuration |
-|-------|---------------|
-| Logistic Regression | scikit-learn defaults |
+| ------- | --------------- |
+| Logistic Regression | scikit-learn defaults (`lbfgs` solver) |
 | K-Nearest Neighbours | scikit-learn defaults (`k = 5`) |
-| Neural Network (MLP) | 3 hidden layers of 8 units, ReLU activation, Adam solver, `max_iter = 1000` |
+| Neural Network (MLP) | 3 hidden layers of 8 units, ReLU activation, Adam solver, `max_iter = 1000`, `random_state = 67` |
 
 ---
 
-## Evaluation
+## Results
 
-Running the script produces the following, in order:
+Measured on the 9,000-record held-out test set (7,036 rejected / 1,964 approved).
 
-1. **Correlation heatmap** across all 14 columns.
-2. **Class distribution bar chart** for `loan_status`.
-3. **Overlaid ROC curves** for all three models on one axis, each labelled with its
-   AUC, plotted against the random-guess diagonal.
-4. **ROC AUC bar chart** comparing the three models side by side.
-5. **Confusion matrix** for each model, plus its accuracy score and a full
-   `classification_report` with per-class precision, recall, and F1.
+| Model | ROC AUC | Accuracy |
+| ------- | --------- | ---------- |
+| **Neural Network (MLP)** | **0.967** | **0.920** |
+| Logistic Regression | 0.955 | 0.900 |
+| K-Nearest Neighbours | 0.936 | 0.903 |
 
-All figures are rendered with `plt.show()` rather than written to disk, so they
-appear inline in the notebook or in a plotting window when run locally.
+Per-class precision / recall / F1:
+
+| Model | Class | Precision | Recall | F1 |
+| ------- | ------- | ----------- | -------- | ----- |
+| Neural Network | Rejected (0) | 0.94 | 0.96 | 0.95 |
+| Neural Network | Approved (1) | 0.84 | 0.78 | 0.81 |
+| Logistic Regression | Rejected (0) | 0.93 | 0.94 | 0.94 |
+| Logistic Regression | Approved (1) | 0.78 | 0.76 | 0.77 |
+| KNN | Rejected (0) | 0.93 | 0.95 | 0.94 |
+| KNN | Approved (1) | 0.80 | 0.74 | 0.77 |
+
+The neural network wins on every measure. The gap between the two classes is the
+part worth reading: all three models handle the majority *rejected* class well and
+lose ground on the minority *approved* class, where recall falls to 0.74 – 0.78.
+In practice that means roughly a quarter of the applicants who should be approved
+are predicted as rejections — the cost of the 3.5 : 1 imbalance, and the clearest
+target for future work.
+
+The script also produces five figures, rendered with `plt.show()` rather than
+written to disk: the correlation heatmap, the class distribution bar chart, the
+overlaid ROC curves for all three models against the random-guess diagonal, the
+ROC AUC comparison bar chart, and one confusion matrix per model.
+
+> These numbers were produced with scikit-learn 1.9.1 on Python 3.13. They are
+> identical from run to run (see [Notes](#notes)), but may shift slightly on a
+> different scikit-learn version.
 
 ---
 
@@ -135,23 +163,7 @@ CSE422_Project/
 
 ## Getting Started
 
-### Option A — Google Colab (recommended)
-
-`src/model.py` was authored in Colab and reads the dataset from `/content/`.
-In a Colab notebook:
-
-```python
-!git clone https://github.com/UtshaBasak/CSE422_Project.git
-!cp "CSE422_Project/data/Loan Approval Dataset.csv" /content/
-%run CSE422_Project/src/model.py
-```
-
-Alternatively, upload `Loan Approval Dataset.csv` directly to the Colab session's
-`/content/` directory and paste the cells from `src/model.py` into the notebook.
-The `#@title` comments in the script are Colab cell titles and mark the boundary of
-each step.
-
-### Option B — Run locally
+### Run locally
 
 ```bash
 git clone https://github.com/UtshaBasak/CSE422_Project.git
@@ -164,10 +176,18 @@ pip install -r requirements.txt
 python src/model.py
 ```
 
-The script loads the dataset from the absolute Colab path `/content/Loan Approval
-Dataset.csv`. To run it outside Colab, make the file available at that path — for
-example by copying it there — or point the `pd.read_csv(...)` call in
-`src/model.py` at `data/Loan Approval Dataset.csv` instead.
+The script resolves the dataset relative to its own location, so it runs from any
+working directory without editing paths.
+
+### Run in Google Colab
+
+```python
+!git clone https://github.com/UtshaBasak/CSE422_Project.git
+%run CSE422_Project/src/model.py
+```
+
+`src/model.py` was originally authored as a Colab notebook, and the `#@title`
+comments it still carries are Colab cell titles marking the boundary of each step.
 
 ### Requirements
 
@@ -178,21 +198,18 @@ Python 3.9+ and the packages listed in [`requirements.txt`](requirements.txt):
 
 ## Notes
 
-- **Reproducibility.** The train/test split is seeded with `random_state=67`, so the
-  split is identical between runs. The `MLPClassifier` is *not* seeded, so its
-  weight initialization differs from run to run and its scores will vary slightly.
-  The neural network is also instantiated twice — once inside the ROC comparison
-  loop and again for the confusion matrix — so those two sets of numbers come from
-  two independently trained networks.
-- **Label convention.** The source dataset documents `loan_status = 1` as an
-  approved loan and `0` as rejected. The plot labels and the `target_names`
-  arguments in `src/model.py` use the opposite convention, so read the axis labels
-  of the generated charts with that in mind.
+- **Reproducibility.** Both sources of randomness are seeded with `random_state = 67`
+  — the train/test split and the `MLPClassifier` weight initialization — so repeated
+  runs give identical numbers. Each model is fitted once and that same fitted
+  estimator is reused for both the ROC comparison and its confusion matrix, so the
+  two sets of figures always describe the same model.
 - **Ordinal encoding.** Nominal columns such as `loan_intent` and
   `person_home_ownership` are mapped to integers, which implies an ordering that
-  does not exist in the data. This suits the tree-free, distance-based and linear
-  models used here only after standardization; one-hot encoding would be the
-  stricter choice for a follow-up.
+  does not exist in the data. One-hot encoding would be the stricter choice, and is
+  the natural next change to try.
+- **Handling the imbalance.** Nothing in the current pipeline compensates for the
+  3.5 : 1 class ratio. Class weighting, resampling, or tuning the decision threshold
+  would all be reasonable ways to lift recall on the approved class.
 
 ---
 

@@ -12,7 +12,13 @@ Original file is located at
 #@title Checking null values
 
 import pandas as pd
-csv_file = pd.read_csv('/content/Loan Approval Dataset.csv')
+from pathlib import Path
+
+# Dataset lives at <repo>/data/, resolved relative to this file so the script
+# can be run from any working directory.
+DATA_PATH = Path(__file__).resolve().parents[1] / 'data' / 'Loan Approval Dataset.csv'
+
+csv_file = pd.read_csv(DATA_PATH)
 csv_file = csv_file.dropna() # no null values in any column
 csv_file.info()
 
@@ -57,11 +63,11 @@ bar_chart = csv_file['loan_status'].value_counts()
 
 # Plot
 plt.figure(figsize = (6, 4))
-bar_chart.plot(kind = 'bar', color = ['green', 'red'])
+bar_chart.plot(kind = 'bar', color = ['red', 'green'])
 plt.title('Class Distribution: loan_status')
-plt.xlabel('Class (0 = Approved, 1 = Not Approved)')
+plt.xlabel('Class (0 = Rejected, 1 = Approved)')
 plt.ylabel('<--- Number of Instances --->')
-plt.xticks([0, 1], ['Approved (0)', 'Not Approved (1)'], rotation = 0)
+plt.xticks([0, 1], ['Rejected (0)', 'Approved (1)'], rotation = 0)
 plt.grid(axis = 'y', linestyle = '--', alpha = 1)
 plt.tight_layout()
 plt.show()
@@ -88,7 +94,7 @@ from sklearn.metrics import roc_curve, auc
 models = {
     'Logistic Regression': LogisticRegression(),
     'KNN': KNeighborsClassifier(),
-    'NUERAL NETWORK': MLPClassifier(hidden_layer_sizes = (8, 8, 8), activation = 'relu', solver = 'adam', max_iter = 1000)
+    'Neural Network': MLPClassifier(hidden_layer_sizes = (8, 8, 8), activation = 'relu', solver = 'adam', max_iter = 1000, random_state = 67)
 }
 
 plt.figure(figsize = (10, 10))
@@ -135,8 +141,7 @@ plt.show()
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score
 from sklearn.metrics import classification_report
 
-mlp = MLPClassifier(hidden_layer_sizes = (8, 8, 8), activation = 'relu', solver = 'adam', max_iter = 1000)
-mlp.fit(x_train_scaled, y_train)
+mlp = models['Neural Network'] # reuse the model already fitted above
 y_pred = mlp.predict(x_test_scaled)
 matrix = confusion_matrix(y_test, y_pred)
 display = ConfusionMatrixDisplay(confusion_matrix = matrix)
@@ -146,12 +151,11 @@ plt.show()
 
 print('\nNeural Network:', accuracy_score(y_test, y_pred))
 print('-------------------------------------------------------------------')
-print(classification_report(y_test, y_pred, target_names=['1','0']))
+print(classification_report(y_test, y_pred, target_names = ['Rejected (0)', 'Approved (1)']))
 
 #@title Logstic regression confusion matrix, precission, recall, f1 score
 
-logistic = LogisticRegression()
-logistic.fit(x_train_scaled, y_train)
+logistic = models['Logistic Regression'] # reuse the model already fitted above
 y_pred = logistic.predict(x_test_scaled)
 matrix = confusion_matrix(y_test, y_pred)
 display = ConfusionMatrixDisplay(confusion_matrix = matrix)
@@ -161,12 +165,11 @@ plt.show()
 
 print('\nLogisticRegression:', accuracy_score(y_test, y_pred))
 print('-------------------------------------------------------------------')
-print(classification_report(y_test, y_pred, target_names = ['1','0']))
+print(classification_report(y_test, y_pred, target_names = ['Rejected (0)', 'Approved (1)']))
 
 #@title KNN confusion matrix, precission, recall, f1 score
 
-knn = KNeighborsClassifier()
-knn.fit(x_train_scaled, y_train)
+knn = models['KNN'] # reuse the model already fitted above
 y_pred = knn.predict(x_test_scaled)
 matrix = confusion_matrix(y_test, y_pred)
 display = ConfusionMatrixDisplay(confusion_matrix = matrix)
@@ -176,4 +179,4 @@ plt.show()
 
 print('\nKNN:', accuracy_score(y_test, y_pred))
 print('-------------------------------------------------------------------')
-print(classification_report(y_test, y_pred, target_names = ['1','0']))
+print(classification_report(y_test, y_pred, target_names = ['Rejected (0)', 'Approved (1)']))
