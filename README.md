@@ -140,9 +140,9 @@ written to disk: the correlation heatmap, the class distribution bar chart, the
 overlaid ROC curves for all three models against the random-guess diagonal, the
 ROC AUC comparison bar chart, and one confusion matrix per model.
 
-> These numbers were produced with scikit-learn 1.9.1 on Python 3.13. They are
-> identical from run to run (see [Notes](#notes)), but may shift slightly on a
-> different scikit-learn version.
+> Produced on Python 3.13 with the pinned dependency set in
+> [`requirements.txt`](requirements.txt). Both sources of randomness are seeded, so
+> these numbers are identical from run to run and reproduce on a clean install.
 
 ---
 
@@ -150,11 +150,13 @@ ROC AUC comparison bar chart, and one confusion matrix per model.
 
 ```
 CSE422_Project/
+├── .github/
+│   └── dependabot.yml               # weekly dependency update checks
 ├── data/
 │   └── Loan Approval Dataset.csv    # 45,000-record source dataset
 ├── src/
 │   └── model.py                     # full pipeline: preprocessing → training → evaluation
-├── requirements.txt                 # Python dependencies
+├── requirements.txt                 # pinned Python dependencies
 ├── .gitignore
 └── README.md
 ```
@@ -191,8 +193,19 @@ comments it still carries are Colab cell titles marking the boundary of each ste
 
 ### Requirements
 
-Python 3.9+ and the packages listed in [`requirements.txt`](requirements.txt):
-`pandas`, `numpy`, `scikit-learn`, `matplotlib`, `seaborn`.
+**Python 3.12 or newer**, plus the packages in
+[`requirements.txt`](requirements.txt). Versions are pinned to the exact set the
+[Results](#results) were measured with, so a clean install reproduces those numbers:
+
+| Package | Version |
+| ------- | ------- |
+| pandas | 3.0.6 |
+| numpy | 2.5.3 |
+| scikit-learn | 1.9.1 |
+| matplotlib | 3.11.2 |
+| seaborn | 0.13.2 |
+
+The Python floor is set by numpy 2.5.3, which requires 3.12 or newer.
 
 ---
 
@@ -202,7 +215,8 @@ Python 3.9+ and the packages listed in [`requirements.txt`](requirements.txt):
   — the train/test split and the `MLPClassifier` weight initialization — so repeated
   runs give identical numbers. Each model is fitted once and that same fitted
   estimator is reused for both the ROC comparison and its confusion matrix, so the
-  two sets of figures always describe the same model.
+  two sets of figures always describe the same model. Dependency versions are pinned
+  in `requirements.txt`, so the numbers hold across machines as well as across runs.
 - **Ordinal encoding.** Nominal columns such as `loan_intent` and
   `person_home_ownership` are mapped to integers, which implies an ordering that
   does not exist in the data. One-hot encoding would be the stricter choice, and is
