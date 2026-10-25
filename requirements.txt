@@ -1,7 +1,7 @@
 # Pinned to the exact versions the results reported in README.md were produced with.
 # Requires Python 3.12 or newer (numpy 2.5.3 sets the floor).
 
-pandas==3.0.6
+pandas==3.1.0
 numpy==2.5.4
 scikit-learn==1.9.1
 matplotlib==3.11.2
